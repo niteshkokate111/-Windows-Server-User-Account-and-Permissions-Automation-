@@ -1,0 +1,54 @@
+# Define users and groups
+$users = @(
+    @{Name = "JohnDoe"; Password = "P@ssword123"; Group = "Finance"},
+    @{Name = "JaneSmith"; Password = "P@ssword123"; Group = "HR"},
+    @{Name = "MarkJones"; Password = "P@ssword123"; Group = "IT"}
+)
+
+$groups = @("Finance", "HR", "IT")
+
+# Define shared folder structure
+$sharedFolderPath = "C:\SharedFolders"
+$folderPermissions = @{
+    "Finance" = "C:\SharedFolders\Finance";
+    "HR"      = "C:\SharedFolders\HR";
+    "IT"      = "C:\SharedFolders\IT";
+}
+
+# Create groups
+foreach ($group in $groups) {
+    if (-Not (Get-LocalGroup -Name $group -ErrorAction SilentlyContinue)) {
+        New-LocalGroup -Name $group -Description "$group group" -Verbose
+    }
+}
+
+# Create shared folders and assign permissions
+foreach ($key in $folderPermissions.Keys) {
+    $path = $folderPermissions[$key]
+    if (-Not (Test-Path $path)) {
+        New-Item -ItemType Directory -Path $path -Verbose
+    }
+    $acl = Get-Acl $path
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("$key", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+    $acl.SetAccessRule($rule)
+    Set-Acl -Path $path -AclObject $acl
+}
+
+# Create users and add them to groups
+foreach ($user in $users) {
+    $username = $user.Name
+    $password = $user.Password | ConvertTo-SecureString -AsPlainText -Force
+    $group = $user.Group
+
+    if (-Not (Get-LocalUser -Name $username -ErrorAction SilentlyContinue)) {
+        New-LocalUser -Name $username -Password $password -FullName $username -Description "User $username" -Verbose
+    }
+
+    Add-LocalGroupMember -Group $group -Member $username -Verbose
+}
+
+Write-Output "User and Group Management Script Executed Successfully!"
+.\UserManagement.ps1
+C:\SharedFolders\Finance
+C:\SharedFolders\HR
+C:\SharedFolders\IT
